@@ -1,0 +1,16 @@
+# 统一换行符：仓库内一律 LF，避免 Windows/Linux 混合协作时产生整文件 diff。
+# 多仓拓扑下这一条尤其重要 —— 每个仓库都要有，否则跨仓改动时噪音会淹没真实变更。
+* text=auto eol=lf
+
+# 二进制文件不做转换
+*.jar    binary
+*.png    binary
+*.jpg    binary
+*.gif    binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+
+# Windows 批处理必须保持 CRLF
+*.bat    text eol=crlf
+*.cmd    text eol=crlf

@@ -1,0 +1,43 @@
+# ---- 构建产物 ----
+target/
+dist/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- 凭据（绝不能提交）----
+# settings.xml 会包含 Central Portal token 与 GPG 口令
+settings.xml
+!scripts/settings.xml.sample
+*.gpg
+*.asc
+!**/target/**/*.asc
+secring.*
+.env
+.env.*
+!.env.example
+
+# ---- 前端 ----
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+.vite/
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+.settings/
+.project
+.classpath
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+
+# ---- 日志与临时文件 ----
+*.log
+logs/
+tmp/

@@ -1,0 +1,99 @@
+# framework-storage-s3-starter 仓库 CI
+#
+# 与 framework 仓的 CI 有一个本质区别：本仓库【必须跨版本验证】。
+# 插件以 provided 依赖框架，**运行时的框架版本由业务方决定**，不是插件构建时那个。
+# 只在一个框架版本上跑绿，等于对"支持 0.2.0+"这句话没有任何证据。
+#
+# 因此下面的 compat 作业按【框架版本矩阵】跑完整测试，矩阵靠覆盖 POM 的
+# describeadmin.version 属性实现。见 docs 仓 registry.md 准入规范第 4、5 条。
+#
+# 测试用 Testcontainers 起真实 MinIO（S3 兼容），需要 Docker —— ubuntu-latest 自带。
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compat:
+    name: 框架 ${{ matrix.framework }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # ⚠️ 新增框架版本时，这里、README 的兼容性表格、registry.md 的表格要一起改。
+        # 下限固定为 REQUIRED_FRAMEWORK_VERSION —— 比它更低的版本连编译都过不去。
+        framework: ['0.2.0']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # SNAPSHOT 版本在 Central 上不存在，必须从框架仓源码装一份到本地仓库。
+      - name: 安装框架 ${{ matrix.framework }}（仅 SNAPSHOT）
+        if: endsWith(matrix.framework, '-SNAPSHOT')
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/describeadmin/framework.git /tmp/framework
+          actual=$(mvn -B -q -f /tmp/framework/pom.xml -DforceStdout -Dexpression=project.version help:evaluate)
+          if [ "$actual" != "${{ matrix.framework }}" ]; then
+            echo "::error::框架仓 main 当前是 $actual，矩阵要的是 ${{ matrix.framework }}。"
+            exit 1
+          fi
+          mvn -B -f /tmp/framework/pom.xml clean install -DskipTests
+
+      - name: 构建
+        run: mvn -B clean install -DskipTests -Ddescribeadmin.version=${{ matrix.framework }}
+
+      - name: 校验字节码版本为 61（Java 17）
+        run: |
+          set -e
+          cls=$(find target/classes -name '*.class' | head -1)
+          ver=$(javap -v -p "$cls" | grep -m1 'major version' | grep -oE '[0-9]+')
+          [ "$ver" = "61" ] || { echo "::error::字节码版本为 $ver，期望 61（Java 17）"; exit 1; }
+          echo "  ✓ major version $ver"
+
+      - name: 校验依赖树中无 JDBC 驱动
+        run: |
+          if mvn -B dependency:tree -Ddescribeadmin.version=${{ matrix.framework }} \
+               | grep -iE 'mysql-connector|mariadb-java-client|oceanbase-client'; then
+            echo "::error::插件依赖树中出现 JDBC 驱动"; exit 1
+          fi
+          echo "  ✓ 无 JDBC 驱动"
+
+      - name: 校验只有一个 AWS HTTP 实现
+        run: |
+          # 两个实现同时在 classpath 上，AWS SDK 建 client 时会抛
+          # "Multiple HTTP implementations found"，且报错不指向 pom
+          if mvn -B dependency:tree -Ddescribeadmin.version=${{ matrix.framework }} \
+               | grep -iE 'awssdk:(apache5-client|apache-client|netty-nio-client)'; then
+            echo "::error::依赖树中出现了被排除的 AWS HTTP 实现"; exit 1
+          fi
+          echo "  ✓ 仅 url-connection-client"
+
+      - name: 校验依赖树中无 Jackson 3
+        run: |
+          if mvn -B dependency:tree -Ddescribeadmin.version=${{ matrix.framework }} \
+               | grep -iE 'tools\.jackson'; then
+            echo "::error::依赖树中出现 Jackson 3（tools.jackson.*）"; exit 1
+          fi
+          echo "  ✓ 无 Jackson 3"
+
+      # Testcontainers 会拉真实 MinIO。用 mock 测 S3 实现等于把要验证的部分假设成立
+      - name: 测试
+        run: mvn -B test -Ddescribeadmin.version=${{ matrix.framework }}
+
+      - name: 失败时上传测试报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-${{ matrix.framework }}
+          path: target/surefire-reports/
+          retention-days: 7
