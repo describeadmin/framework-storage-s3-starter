@@ -383,6 +383,30 @@ Tailwind v4（`@import 'tailwindcss'`）把自己生成的全部工具类放进
 
 ---
 
+### 4.10 Lombok：只用于 codegen 生成物
+
+codegen 生成的 Java 代码用 Lombok 消除逐字段样板：
+
+- **Entity**：类上 `@Getter` / `@Setter`，不手写访问器
+- **Controller**：类上 `@RequiredArgsConstructor`，不手写注入构造器
+- Mapper / Service 模板不涉及
+
+依赖由 `describeadmin-archetype` 生成的业务 `pom.xml` 自带
+（`org.projectlombok:lombok`，`<optional>true</optional>`，**不写版本**——由
+`spring-boot-dependencies` 仲裁）。注解处理器靠 javac 从 classpath 的 SPI 描述符
+自动发现，不配 `annotationProcessorPaths`。
+
+**框架自身源码不用 Lombok**——`BaseEntity` / 各 starter / `SysUser` 一律手写
+访问器 / 构造器 / Logger（`@Slf4j` 也不用）。"任意 JDK ≥ 17 都能直接构建**框架本身**"
+这条承诺不容注解处理器这种绑 javac 内部非公开 API 的变量；而生成物是在**业务方**的
+构建链上编译的，那条链的 JDK 由业务方掌控，不受此约束。`framework-bom` 也不仲裁
+lombok 版本。
+
+既有业务工程若用新版 codegen 重生成，需在自己 `pom.xml` 补一行 lombok 依赖，
+否则生成物编译不过。
+
+---
+
 ## 5. 兼容性与发布
 
 - 遵循 SemVer：只有大版本允许破坏性变更
