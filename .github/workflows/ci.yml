@@ -2,7 +2,7 @@
 #
 # 与 framework 仓的 CI 有一个本质区别：本仓库【必须跨版本验证】。
 # 插件以 provided 依赖框架，**运行时的框架版本由业务方决定**，不是插件构建时那个。
-# 只在一个框架版本上跑绿，等于对"支持 0.2.0+"这句话没有任何证据。
+# 只在一个框架版本上跑绿，等于对"支持 1.0.0+"这句话没有任何证据。
 #
 # 因此下面的 compat 作业按【框架版本矩阵】跑完整测试，矩阵靠覆盖 POM 的
 # describeadmin.version 属性实现。见 docs 仓 registry.md 准入规范第 4、5 条。
@@ -26,7 +26,7 @@ jobs:
       matrix:
         # ⚠️ 新增框架版本时，这里、README 的兼容性表格、registry.md 的表格要一起改。
         # 下限固定为 REQUIRED_FRAMEWORK_VERSION —— 比它更低的版本连编译都过不去。
-        framework: ['0.2.0']
+        framework: ['1.0.0']
     steps:
       - uses: actions/checkout@v4
 
@@ -36,15 +36,28 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # SNAPSHOT 版本在 Central 上不存在，必须从框架仓源码装一份到本地仓库。
-      - name: 安装框架 ${{ matrix.framework }}（仅 SNAPSHOT）
-        if: endsWith(matrix.framework, '-SNAPSHOT')
+      # Central 上还没有的版本必须从框架仓源码装一份到本地仓库：SNAPSHOT 是一种，
+      # "框架已经打好这一版但尚未发布到 Central"是另一种——插件的下限版本总是先于
+      # 框架发布就被提上来（1.0.0 首发时各插件都是这个处境），矩阵不能因此红着等。
+      # 已发布的版本直接从 Central 解析，不走这一步——那才是业务方的真实处境。
+      #
+      # 判定用 repo1 直查而不是 dependency:get：后者会命中 actions/cache 恢复出来的
+      # 本地仓库，把"上一轮自己从源码装的那份"当成 Central 已有，源码安装被静默跳过。
+      - name: 解析框架 ${{ matrix.framework }}（Central 上没有则从源码装）
         run: |
           set -e
+          v='${{ matrix.framework }}'
+          url="https://repo1.maven.org/maven2/io/github/describeadmin/framework-bom/$v/framework-bom-$v.pom"
+          if [ "${v%-SNAPSHOT}" = "$v" ] && curl -fsI "$url" > /dev/null; then
+            echo "  ✓ Central 已发布 $v，按业务方的真实处境从 Central 解析"
+            exit 0
+          fi
+          echo "Central 上没有 $v，从框架仓源码安装"
           git clone --depth 1 https://github.com/describeadmin/framework.git /tmp/framework
           actual=$(mvn -B -q -f /tmp/framework/pom.xml -DforceStdout -Dexpression=project.version help:evaluate)
-          if [ "$actual" != "${{ matrix.framework }}" ]; then
-            echo "::error::框架仓 main 当前是 $actual，矩阵要的是 ${{ matrix.framework }}。"
+          if [ "$actual" != "$v" ]; then
+            echo "::error::框架仓 main 当前是 $actual，矩阵要的是 $v。"
+            echo "::error::请更新矩阵，或等框架仓推上对应版本——静默用错版本比直接失败更糟。"
             exit 1
           fi
           mvn -B -f /tmp/framework/pom.xml clean install -DskipTests

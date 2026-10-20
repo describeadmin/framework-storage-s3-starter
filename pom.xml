@@ -18,7 +18,7 @@
 
   <groupId>io.github.describeadmin</groupId>
   <artifactId>framework-storage-s3-starter</artifactId>
-  <version>0.2.0</version>
+  <version>1.0.0</version>
   <packaging>jar</packaging>
 
   <name>describeadmin :: framework-storage-s3-starter</name>
@@ -63,7 +63,7 @@
           mvn -B test -Ddescribeadmin.version=0.3.0
       插件自身版本号（上面的 <version>）与本属性【不联动】。
     -->
-    <describeadmin.version>0.2.0</describeadmin.version>
+    <describeadmin.version>1.0.0</describeadmin.version>
 
     <!-- AWS SDK for Java v2。Spring Boot 不仲裁它，必须自己 import BOM。 -->
     <aws-sdk.version>2.54.9</aws-sdk.version>

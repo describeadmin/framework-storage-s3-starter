@@ -49,12 +49,12 @@ public class FrameworkStorageS3AutoConfiguration {
      * 本插件要求的最低框架版本。
      *
      * <p>手工声明，不从插件自身版本推导（插件独立成仓后两者无对应关系）。
-     * 本插件用到 {@code framework-storage-starter} 0.2.0 引入的 {@link StorageProvider} 契约
+     * 1.0.0 是第一个正式版（0.x 不做兼容）。本插件用到 {@code framework-storage-starter} 的 {@link StorageProvider} 契约
      * 与其 {@code presignedUrl} 扩展点，用到旧框架会在<b>运行期</b>抛
      * {@code NoClassDefFoundError} / {@code NoSuchMethodError}，而不是启动时。
      * 用到框架新增 SPI 时必须同步上调本常量。
      */
-    public static final String REQUIRED_FRAMEWORK_VERSION = "0.2.0";
+    public static final String REQUIRED_FRAMEWORK_VERSION = "1.0.0";
 
     public FrameworkStorageS3AutoConfiguration() {
         // 放在构造函数里：条件都满足、真要装配本插件时才检查。
