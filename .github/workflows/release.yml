@@ -1,6 +1,6 @@
 # framework-storage-s3-starter 发布到 Maven Central
 #
-# 详细操作手册见元仓库 docs/RELEASE.md。插件与 framework 走同一套发布姿势，
+# 详细操作手册见docs/site/dev/release.md。插件与 framework 走同一套发布姿势，
 # 但版本线独立：本仓库的 <version> 与 framework 版本无对应关系。
 #
 # 需要在 GitHub 组织/仓库 Secrets 中配置（已在组织级配好，全仓可用）：

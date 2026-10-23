@@ -306,7 +306,7 @@
   </build>
 
   <profiles>
-    <!-- 发布 profile。与 framework 仓 / 其它插件的同名 profile 一致。步骤见 docs 仓 RELEASE.md。 -->
+    <!-- 发布 profile。与 framework 仓 / 其它插件的同名 profile 一致。步骤见 docs/site/dev/release.md。 -->
     <profile>
       <id>release</id>
       <build>

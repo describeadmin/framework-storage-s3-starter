@@ -5,7 +5,7 @@
 # 只在一个框架版本上跑绿，等于对"支持 1.0.0+"这句话没有任何证据。
 #
 # 因此下面的 compat 作业按【框架版本矩阵】跑完整测试，矩阵靠覆盖 POM 的
-# describeadmin.version 属性实现。见 docs 仓 registry.md 准入规范第 4、5 条。
+# describeadmin.version 属性实现。见 docs/site/dev/plugin-dev.md 第 4、5 条。
 #
 # 测试用 Testcontainers 起真实 MinIO（S3 兼容），需要 Docker —— ubuntu-latest 自带。
 
@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # ⚠️ 新增框架版本时，这里、README 的兼容性表格、registry.md 的表格要一起改。
+        # ⚠️ 新增框架版本时，这里、README 的兼容性表格、docs/site/reference/plugins.md 的表格要一起改。
         # 下限固定为 REQUIRED_FRAMEWORK_VERSION —— 比它更低的版本连编译都过不去。
         framework: ['1.0.0']
     steps:
