@@ -7,7 +7,7 @@
 # 因此下面的 compat 作业按【框架版本矩阵】跑完整测试，矩阵靠覆盖 POM 的
 # describeadmin.version 属性实现。见 docs/site/dev/plugin-dev.md 第 4、5 条。
 #
-# 测试用 Testcontainers 起真实 MinIO（S3 兼容），需要 Docker —— ubuntu-latest 自带。
+# 测试用 Testcontainers 起真实 RustFS（S3 兼容），需要 Docker —— ubuntu-latest 自带。
 
 name: CI
 
@@ -99,7 +99,7 @@ jobs:
           fi
           echo "  ✓ 无 Jackson 3"
 
-      # Testcontainers 会拉真实 MinIO。用 mock 测 S3 实现等于把要验证的部分假设成立
+      # Testcontainers 会拉真实 RustFS。用 mock 测 S3 实现等于把要验证的部分假设成立
       - name: 测试
         run: mvn -B test -Ddescribeadmin.version=${{ matrix.framework }}
 

@@ -1,6 +1,6 @@
 package io.github.describeadmin.storage.s3;
 
-import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -24,12 +24,16 @@ import java.util.UUID;
  * HTTP 真正拉到、path-style 寻址、{@code NoSuchKey} 的错误码、{@code DeleteObject} 的幂等性，
  * 这些恰恰是 mock 掉之后就再也验证不到的东西。
  *
- * <p><b>默认后端是 Testcontainers 起的 MinIO</b>（S3 兼容、CI 可复现）。也可以指向一个已在运行的
+ * <p><b>默认后端是 Testcontainers 起的 RustFS</b>（S3 兼容、CI 可复现）。也可以指向一个已在运行的
  * 外部 S3 兼容服务，跳过容器：
  * <pre>
  *   mvn test -Ds3.endpoint=http://localhost:9000 -Ds3.access-key=rustfsadmin -Ds3.secret-key=rustfsadmin
  * </pre>
- * 这正是"用 RustFS 进行测试"的入口——RustFS 与 MinIO 一样是 S3 协议实现，同一套用例都应通过。
+ * 这正是"用真实部署进行测试"的入口——RustFS 与 MinIO 一样是 S3 协议实现，同一套用例都应通过。
+ *
+ * <p>后端从 MinIO 换成 RustFS 的原因：MinIO 社区版停更后，官方镜像于 2026-09 从 Docker Hub
+ * 整库删除（quay.io 匿名拉取同样被拒），全新 CI 环境无法再拉取；RustFS 镜像公开可拉，
+ * 且本插件的产品定位本就包含 RustFS 这类 S3 兼容实现。
  *
  * <p>整个 JVM 共用一个容器 / 一个桶：容器启动是这组测试里最慢的一步。用例之间用
  * {@link #cleanBucket()} 清空对象，避免"单独跑能过、一起跑就挂"。
@@ -37,10 +41,11 @@ import java.util.UUID;
 public abstract class AbstractS3Test {
 
     private static final String EXTERNAL_ENDPOINT = System.getProperty("s3.endpoint", "").trim();
-    private static final String IMAGE =
-            System.getProperty("minio.image", "minio/minio:RELEASE.2024-06-13T22-53-53Z");
+    private static final String IMAGE = System.getProperty("s3.image", "rustfs/rustfs:latest");
+    private static final String DEFAULT_ACCESS_KEY = "rustfsadmin";
+    private static final String DEFAULT_SECRET_KEY = "rustfsadmin";
 
-    private static final MinIOContainer MINIO;
+    private static final GenericContainer<?> S3;
 
     protected static final String REGION = "us-east-1";
     protected static final String ENDPOINT;
@@ -52,16 +57,19 @@ public abstract class AbstractS3Test {
 
     static {
         if (EXTERNAL_ENDPOINT.isEmpty()) {
-            MINIO = new MinIOContainer(DockerImageName.parse(IMAGE));
-            MINIO.start();
-            ENDPOINT = MINIO.getS3URL();
-            ACCESS_KEY = MINIO.getUserName();
-            SECRET_KEY = MINIO.getPassword();
+            S3 = new GenericContainer<>(DockerImageName.parse(IMAGE))
+                    .withExposedPorts(9000)
+                    .withEnv("RUSTFS_ACCESS_KEY", DEFAULT_ACCESS_KEY)
+                    .withEnv("RUSTFS_SECRET_KEY", DEFAULT_SECRET_KEY);
+            S3.start();
+            ENDPOINT = "http://" + S3.getHost() + ":" + S3.getMappedPort(9000);
+            ACCESS_KEY = DEFAULT_ACCESS_KEY;
+            SECRET_KEY = DEFAULT_SECRET_KEY;
         } else {
-            MINIO = null;
+            S3 = null;
             ENDPOINT = EXTERNAL_ENDPOINT;
-            ACCESS_KEY = System.getProperty("s3.access-key", "rustfsadmin");
-            SECRET_KEY = System.getProperty("s3.secret-key", "rustfsadmin");
+            ACCESS_KEY = System.getProperty("s3.access-key", DEFAULT_ACCESS_KEY);
+            SECRET_KEY = System.getProperty("s3.secret-key", DEFAULT_SECRET_KEY);
         }
         try (S3Client bootstrap = newClient()) {
             bootstrap.createBucket(b -> b.bucket(BUCKET));
@@ -101,7 +109,7 @@ public abstract class AbstractS3Test {
      * 清空桶里的全部对象。每个用例前调用，共用桶意味着用例之间会互相看到对方写的对象。
      *
      * <p>逐个 {@code deleteObject} 而不是批量 {@code deleteObjects}：批量删除属于
-     * "SDK 必须附带完整性校验头"的操作，较老的 S3 兼容实现（这里用的 MinIO 镜像）
+     * "SDK 必须附带完整性校验头"的操作，较老的 S3 兼容实现（如旧版 MinIO）
      * 只认旧的 {@code Content-Md5}、不认新 SDK 默认的 {@code x-amz-checksum-crc32}，
      * 会以 400 拒绝。单对象删除没有这个要求。被测代码 {@code S3StorageProvider.remove}
      * 用的也是单对象删除，所以这不是被测行为的问题，只是测试夹具要绕开。
