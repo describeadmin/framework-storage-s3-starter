@@ -1,6 +1,9 @@
 # framework-storage-s3-starter
 
-![Describe Admin](./assets/logo-text.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-text.svg">
+  <img alt="Describe Admin" src="./assets/logo-text-light.svg">
+</picture>
 
 describeadmin 的可选插件。把框架的文件存储从本地磁盘切到 S3 或 S3 兼容的对象存储（已验证 AWS S3、MinIO、RustFS）。
 
